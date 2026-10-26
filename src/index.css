@@ -1,0 +1,305 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Plus Jakarta Sans', monospace;
+
+  /* Override emerald palette tokens with Claude's signature warm terracotta orange
+     so every accent utility across the entire app harmonizes effortlessly */
+  --color-emerald-50: #FDF4F0;
+  --color-emerald-100: #FAE6DE;
+  --color-emerald-200: #F3CBB9;
+  --color-emerald-300: #E9A78C;
+  --color-emerald-400: #E08A6B;
+  --color-emerald-500: #D97757;
+  --color-emerald-600: #C96442;
+  --color-emerald-700: #B35334;
+  --color-emerald-800: #8F4229;
+  --color-emerald-900: #6E3320;
+  --color-emerald-950: #3D1B10;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: #F7F5F0;
+    color: #1F1E1B;
+    overflow-x: hidden;
+  }
+
+  .dark body {
+    background-color: #141311;
+    color: #F4F1EA;
+  }
+}
+
+.font-mono,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Liquid Glass Ambient Canvas */
+.kronoflow-ambient-bg {
+  background-color: #F6F3EC;
+  background-image:
+    radial-gradient(at 12% 10%, rgba(217, 119, 87, 0.16) 0px, transparent 48%),
+    radial-gradient(at 88% 16%, rgba(235, 162, 118, 0.14) 0px, transparent 45%),
+    radial-gradient(at 52% 88%, rgba(201, 100, 66, 0.11) 0px, transparent 52%);
+  background-attachment: fixed;
+}
+
+.dark .kronoflow-ambient-bg {
+  background-color: #141311;
+  background-image:
+    radial-gradient(at 12% 12%, rgba(217, 119, 87, 0.15) 0px, transparent 50%),
+    radial-gradient(at 88% 18%, rgba(180, 83, 52, 0.12) 0px, transparent 46%),
+    radial-gradient(at 50% 90%, rgba(217, 119, 87, 0.08) 0px, transparent 55%);
+  background-attachment: fixed;
+}
+
+/* Liquid Glass Card & Surface System */
+.liquid-glass {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.78) 0%,
+    rgba(255, 252, 248, 0.62) 100%
+  );
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow:
+    0 10px 30px -10px rgba(31, 30, 27, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    inset 0 0 0 0.5px rgba(217, 119, 87, 0.12);
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .liquid-glass {
+  background: linear-gradient(
+    135deg,
+    rgba(34, 32, 29, 0.76) 0%,
+    rgba(25, 24, 21, 0.64) 100%
+  );
+  border: 1px solid rgba(255, 248, 240, 0.09);
+  box-shadow:
+    0 12px 34px -10px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 0.5px rgba(217, 119, 87, 0.14);
+}
+
+.liquid-glass-interactive:hover {
+  transform: translateY(-2px);
+  border-color: rgba(201, 100, 66, 0.35);
+  box-shadow:
+    0 16px 36px -12px rgba(201, 100, 66, 0.14),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.92);
+}
+
+.dark .liquid-glass-interactive:hover {
+  border-color: rgba(217, 119, 87, 0.38);
+  box-shadow:
+    0 16px 36px -12px rgba(217, 119, 87, 0.18),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
+}
+
+.liquid-glass-sidebar {
+  background: linear-gradient(
+    180deg,
+    rgba(253, 251, 247, 0.84) 0%,
+    rgba(248, 244, 237, 0.75) 100%
+  );
+  backdrop-filter: blur(26px) saturate(190%);
+  -webkit-backdrop-filter: blur(26px) saturate(190%);
+  border-right: 1px solid rgba(217, 119, 87, 0.14);
+  box-shadow:
+    4px 0 24px -8px rgba(31, 30, 27, 0.05),
+    inset -1px 0 0 0 rgba(255, 255, 255, 0.65);
+}
+
+.dark .liquid-glass-sidebar {
+  background: linear-gradient(
+    180deg,
+    rgba(28, 26, 23, 0.86) 0%,
+    rgba(20, 19, 17, 0.78) 100%
+  );
+  border-right: 1px solid rgba(255, 248, 240, 0.08);
+  box-shadow:
+    4px 0 24px -8px rgba(0, 0, 0, 0.45),
+    inset -1px 0 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.liquid-glass-header {
+  background: rgba(253, 251, 247, 0.74);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(217, 119, 87, 0.14);
+  box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.55);
+}
+
+.dark .liquid-glass-header {
+  background: rgba(24, 23, 20, 0.74);
+  border-bottom: 1px solid rgba(255, 248, 240, 0.08);
+  box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Claude Orange Liquid Pill Button */
+.claude-liquid-btn {
+  background: linear-gradient(135deg, #D97757 0%, #C45B3A 100%);
+  color: #ffffff;
+  box-shadow:
+    0 6px 18px -4px rgba(201, 100, 66, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35);
+  transition:
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.claude-liquid-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 10px 22px -4px rgba(201, 100, 66, 0.55),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.45);
+}
+
+.claude-liquid-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Smooth button & control transitions */
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes kronoflowFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes kronoflowDrawerSlideIn {
+  0% {
+    opacity: 0.7;
+    transform: translateX(-100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes kronoflowToastPop {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-view-enter {
+  animation: kronoflowFadeUp 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-drawer-enter {
+  animation: kronoflowDrawerSlideIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-toast-enter {
+  animation: kronoflowToastPop 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.gsi-material-button {
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-appearance: none;
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  background-image: none;
+  border: 1px solid rgba(217, 119, 87, 0.25);
+  border-radius: 10px;
+  box-sizing: border-box;
+  color: #1f1f1f;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  height: 38px;
+  letter-spacing: 0.15px;
+  outline: none;
+  overflow: hidden;
+  padding: 0 12px;
+  position: relative;
+  text-align: center;
+  transition: background-color 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.18s;
+  vertical-align: middle;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dark .gsi-material-button {
+  background-color: rgba(34, 32, 29, 0.85);
+  border-color: rgba(255, 248, 240, 0.12);
+  color: #f8fafc;
+}
+
+.gsi-material-button:hover {
+  background-color: #ffffff;
+  border-color: #D97757;
+  transform: translateY(-1px);
+}
+
+.dark .gsi-material-button:hover {
+  background-color: rgba(48, 45, 40, 0.95);
+  border-color: #D97757;
+}
+
+.gsi-material-button-content-wrapper {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  height: 100%;
+  justify-content: center;
+  gap: 8px;
+}
+
+.gsi-material-button-icon {
+  height: 18px;
+  width: 18px;
+  min-width: 18px;
+}

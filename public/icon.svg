@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Flat 2D Minimalist Background in Claude Terracotta (#D97757) -->
+  <rect width="512" height="512" rx="112" fill="#D97757" />
+
+  <!-- Minimalist 2D Geometric KronoFlow Monogram in Warm Cream (#FBF9F5) -->
+  <!-- Left Vertical Stem -->
+  <rect x="140" y="136" width="52" height="240" rx="26" fill="#FBF9F5" />
+
+  <!-- Upper & Lower Geometric Chevron Arms of 'K' -->
+  <path
+    d="M 332 146 L 222 256 L 332 366"
+    fill="none"
+    stroke="#FBF9F5"
+    stroke-width="52"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Minimalist Flow Node Dot -->
+  <circle cx="358" cy="256" r="24" fill="#FBF9F5" />
+</svg>

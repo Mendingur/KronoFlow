@@ -1,0 +1,177 @@
+{
+  "entities": {
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "Thiết lập ngân sách hàng tháng và cấu hình không gian làm việc của người dùng",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID của người dùng sở hữu",
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "monthlyBudget": {
+          "type": "number",
+          "description": "Hạn mức ngân sách hàng tháng (VNĐ)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời gian tạo bản ghi trên máy chủ"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời gian cập nhật bản ghi trên máy chủ"
+        }
+      },
+      "required": ["ownerId", "monthlyBudget", "createdAt", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Giao dịch thu nhập hoặc chi tiêu cá nhân",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID của người dùng sở hữu",
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Số tiền giao dịch (VNĐ)"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["income", "expense"],
+          "maxLength": 16
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "date": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "amount", "type", "category", "note", "date", "createdAt", "updatedAt"]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "Thói quen rèn luyện kỷ luật hằng ngày",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "completedDates": {
+          "type": "array",
+          "description": "Danh sách ngày đã hoàn thành (tối đa 366 ngày gần nhất)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "title", "category", "completedDates", "createdAt", "updatedAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Công việc hằng ngày trong ma trận ưu tiên",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["urgent", "important", "normal"],
+          "maxLength": 24
+        },
+        "deadline": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "status": {
+          "type": "string",
+          "enum": ["todo", "in_progress", "done"],
+          "maxLength": 24
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "title", "priority", "deadline", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserSettings"
+      },
+      "description": "Cấu hình cá nhân và ngân sách tháng của người dùng"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": {
+        "$ref": "#/entities/Transaction"
+      },
+      "description": "Danh sách các giao dịch thu chi của người dùng"
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": {
+        "$ref": "#/entities/Habit"
+      },
+      "description": "Danh sách các thói quen kỷ luật của người dùng"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": {
+        "$ref": "#/entities/Task"
+      },
+      "description": "Danh sách các công việc hằng ngày của người dùng"
+    }
+  }
+}
