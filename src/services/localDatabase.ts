@@ -91,6 +91,52 @@ export function normalizeDatabase(raw: unknown, fallback: KronoFlowDatabase): Kr
   };
 }
 
+// ───────── Chế độ không đăng nhập: dữ liệu chỉ nằm trong LocalStorage của trình duyệt này ─────────
+
+export const LOCAL_MODE_STORAGE_KEY = 'kronoflow_mode_v1';
+export const LOCAL_ONLY_DB_STORAGE_KEY = 'kronoflow_local_only_db_v1';
+
+export function isLocalModeEnabled(): boolean {
+  try {
+    return localStorage.getItem(LOCAL_MODE_STORAGE_KEY) === 'local';
+  } catch {
+    return false;
+  }
+}
+
+export function setLocalModeEnabled(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.setItem(LOCAL_MODE_STORAGE_KEY, 'local');
+    } else {
+      localStorage.removeItem(LOCAL_MODE_STORAGE_KEY);
+    }
+  } catch {
+    // Bỏ qua lỗi truy cập storage
+  }
+}
+
+export function loadLocalOnlyDatabase(): KronoFlowDatabase | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_ONLY_DB_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return normalizeDatabase(parsed, parsed as KronoFlowDatabase);
+  } catch {
+    return null;
+  }
+}
+
+export function saveLocalOnlyDatabase(db: KronoFlowDatabase): boolean {
+  try {
+    localStorage.setItem(LOCAL_ONLY_DB_STORAGE_KEY, JSON.stringify(db));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Dấu vân tay nội dung (bỏ qua lastUpdated) để biết dữ liệu đã thật sự thay đổi chưa */
 export function databaseContentHash(db: KronoFlowDatabase): string {
   return JSON.stringify([db.settings, db.budgets, db.transactions, db.habits, db.todos]);

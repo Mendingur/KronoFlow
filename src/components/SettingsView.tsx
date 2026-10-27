@@ -36,6 +36,8 @@ import {
 import { CompactDriveQuotaBar } from './DriveProtectionModals';
 
 interface SettingsViewProps {
+  storageMode: 'drive' | 'local';
+  onConnectDrive: () => Promise<void>;
   userProfile: UserProfileInfo | null;
   monthlyBudget: number;
   transactions: Transaction[];
@@ -75,6 +77,8 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
+  storageMode,
+  onConnectDrive,
   userProfile,
   monthlyBudget,
   transactions,
@@ -244,7 +248,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
+      {storageMode === 'local' && (
+        <section data-testid="local-mode-section" className="rounded-2xl liquid-glass p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-xl claude-liquid-btn flex items-center justify-center text-white shrink-0">
+              <HardDrive className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                Đang dùng không cần đăng nhập
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Dữ liệu chỉ nằm trong trình duyệt này: không đồng bộ giữa các thiết bị và sẽ mất nếu bạn xóa dữ liệu
+                duyệt web. Hãy xuất file JSON ở bên dưới để sao lưu, hoặc kết nối Google Drive để lưu an toàn.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void onConnectDrive()}
+            data-testid="settings-connect-drive-btn"
+            className="inline-flex items-center gap-1.5 rounded-xl claude-liquid-btn px-4 py-2.5 text-xs font-bold text-white whitespace-nowrap"
+          >
+            <HardDrive className="h-3.5 w-3.5" />
+            Đăng nhập Google để kết nối Google Drive
+          </button>
+        </section>
+      )}
+
       {/* Google Drive: cơ sở dữ liệu cá nhân + dung lượng + nhắc nhở không xóa tệp */}
+      {storageMode === 'drive' && (
       <section data-testid="drive-database-section" className="rounded-2xl liquid-glass p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-200/70 dark:border-slate-800">
           <div className="flex items-start gap-3">
@@ -312,6 +345,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
       </section>
+      )}
 
       {/* Khóa Gemini API cá nhân + GOOGLE_CLIENT_ID */}
       <section data-testid="gemini-api-key-section" className="rounded-2xl liquid-glass p-6 space-y-5">

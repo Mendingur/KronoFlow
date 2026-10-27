@@ -58,8 +58,12 @@ import {
   LocalSnapshot,
   clearLocalSnapshot,
   databaseContentHash,
+  isLocalModeEnabled,
+  loadLocalOnlyDatabase,
   loadLocalSnapshot,
+  saveLocalOnlyDatabase,
   saveLocalSnapshot,
+  setLocalModeEnabled,
 } from './services/localDatabase';
 import {
   DRIVE_DB_FILENAME,
@@ -125,16 +129,30 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [todayISO, setTodayISO] = useState<string>(() => getLocalTodayISO());
 
-  const [darkMode, setDarkMode] = useState<boolean>(readStoredTheme);
+  // Chế độ "Dùng không cần đăng nhập": dữ liệu chỉ nằm trong LocalStorage của trình duyệt này
+  const [bootLocalDb] = useState<KronoFlowDatabase | null>(() =>
+    isLocalModeEnabled() ? loadLocalOnlyDatabase() ?? createSeedDatabase() : null
+  );
+  const [storageMode, setStorageMode] = useState<'drive' | 'local'>(() =>
+    bootLocalDb ? 'local' : 'drive'
+  );
+
+  const [darkMode, setDarkMode] = useState<boolean>(() =>
+    bootLocalDb ? bootLocalDb.settings.darkMode : readStoredTheme()
+  );
 
   // Dữ liệu ứng dụng — nguồn sự thật là tệp kronoflow_database.json trên Google Drive của người dùng
-  const [monthlyBudget, setMonthlyBudget] = useState<number>(INITIAL_MONTHLY_BUDGET);
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
-  const [habits, setHabits] = useState<Habit[]>(INITIAL_HABITS);
-  const [tasks, setTasks] = useState<TaskItem[]>(INITIAL_TASKS);
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(
+    bootLocalDb?.budgets.monthlyBudget ?? INITIAL_MONTHLY_BUDGET
+  );
+  const [transactions, setTransactions] = useState<Transaction[]>(
+    bootLocalDb?.transactions ?? INITIAL_TRANSACTIONS
+  );
+  const [habits, setHabits] = useState<Habit[]>(bootLocalDb?.habits ?? INITIAL_HABITS);
+  const [tasks, setTasks] = useState<TaskItem[]>(bootLocalDb?.todos ?? INITIAL_TASKS);
 
   // Đăng nhập Google & trạng thái đồng bộ Drive
-  const [authPhase, setAuthPhase] = useState<AuthPhase>('signed_out');
+  const [authPhase, setAuthPhase] = useState<AuthPhase>(() => (bootLocalDb ? 'ready' : 'signed_out'));
   const [authError, setAuthError] = useState<string>('');
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<UserProfileInfo | null>(null);
@@ -402,6 +420,11 @@ export default function App() {
     latestDbRef.current = database;
     if (authPhase !== 'ready') return;
 
+    if (storageMode === 'local') {
+      saveLocalOnlyDatabase(database); // chế độ không đăng nhập: chỉ lưu trong trình duyệt
+      return;
+    }
+
     const pending = databaseContentHash(database) !== lastSyncedHashRef.current;
     if (driveReadyRef.current || localTrustedRef.current) {
       persistLocal(database, pending);
@@ -412,7 +435,7 @@ export default function App() {
       void syncNow();
     }, SYNC_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [database, authPhase, persistLocal, syncNow]);
+  }, [database, authPhase, storageMode, persistLocal, syncNow]);
 
   // ───────── ĐỌC từ Drive ─────────
 
@@ -476,10 +499,27 @@ export default function App() {
     [addToast, applyDatabase, flagDriveFull, flagTrashed, handleDriveError, reportQuota]
   );
 
+  const enterLocalMode = useCallback(() => {
+    const db = loadLocalOnlyDatabase() ?? createSeedDatabase();
+    setLocalModeEnabled(true);
+    clearDriveSession();
+    driveReadyRef.current = false;
+    accountKeyRef.current = '';
+    applyDatabase(db, true);
+    setStorageMode('local');
+    setUserProfile(null);
+    setDriveSyncStatus('disconnected');
+    setDriveQuota(null);
+    setAuthError('');
+    setAuthPhase('ready');
+  }, [applyDatabase]);
+
   const startSession = useCallback(
-    async (profile: UserProfileInfo) => {
+    async (profile: UserProfileInfo, carryOver: KronoFlowDatabase | null = null) => {
       setAuthPhase('loading');
       setAuthError('');
+      setStorageMode('drive');
+      setLocalModeEnabled(false);
 
       const accountKey = accountKeyOf(profile);
       const local = loadLocalSnapshot();
@@ -502,7 +542,11 @@ export default function App() {
       setUserProfile(profile);
 
       const fallback =
-        trusted && local ? { ...local.db, userProfile: profile } : createSeedDatabase(profile);
+        trusted && local
+          ? { ...local.db, userProfile: profile }
+          : carryOver
+          ? { ...carryOver, userProfile: profile } // vừa chuyển từ chế độ không đăng nhập: mang dữ liệu sang Drive
+          : createSeedDatabase(profile);
 
       const outcome = await readAndApply({
         fallback,
@@ -512,6 +556,11 @@ export default function App() {
       });
 
       if (outcome === 'failed') {
+        if (!trusted && carryOver) {
+          // Kết nối Drive không thành công → quay lại chế độ không đăng nhập, dữ liệu vẫn còn nguyên
+          enterLocalMode();
+          return;
+        }
         if (!trusted) {
           // Không có bản đệm hợp lệ và không đọc được Drive → quay về màn hình đăng nhập, tránh ghi đè nhầm
           clearDriveSession();
@@ -526,8 +575,16 @@ export default function App() {
         applyDatabase(fallback, false); // vẫn cho xem bản đệm trên thiết bị
       }
       setAuthPhase('ready');
+
+      if (carryOver) {
+        addToast(
+          'Đã kết nối Google Drive',
+          'Nếu trên Drive đã có dữ liệu từ trước thì dữ liệu đó được dùng. Bản lưu ở chế độ không đăng nhập vẫn nằm trên máy này.',
+          'info'
+        );
+      }
     },
-    [applyDatabase, readAndApply]
+    [addToast, applyDatabase, enterLocalMode, readAndApply]
   );
 
   const reloadFromDrive = useCallback(async () => {
@@ -577,7 +634,11 @@ export default function App() {
       const { profile } = await signInWithGoogleDrive();
       authExpiredToastedRef.current = false;
 
-      if (authPhase === 'ready' && accountKeyOf(profile) === accountKeyRef.current) {
+      if (
+        authPhase === 'ready' &&
+        storageMode === 'drive' &&
+        accountKeyOf(profile) === accountKeyRef.current
+      ) {
         // Đăng nhập lại đúng tài khoản cũ: giữ nguyên dữ liệu đang có, chỉ nối lại đồng bộ
         setUserProfile(profile);
         if (driveReadyRef.current) {
@@ -586,7 +647,8 @@ export default function App() {
           await reloadFromDrive();
         }
       } else {
-        await startSession(profile);
+        const carry = storageMode === 'local' ? latestDbRef.current : null;
+        await startSession(profile, carry);
       }
     } catch (err) {
       const message =
@@ -599,7 +661,7 @@ export default function App() {
     } finally {
       setIsAuthenticating(false);
     }
-  }, [addToast, authPhase, reloadFromDrive, startSession, syncNow]);
+  }, [addToast, authPhase, storageMode, reloadFromDrive, startSession, syncNow]);
 
   const handleSignOut = () => {
     clearDriveSession();
@@ -985,6 +1047,7 @@ export default function App() {
             loading={isAuthenticating}
             errorMessage={authError}
             onSignInGoogleDrive={handleGoogleSignIn}
+            onContinueWithoutLogin={enterLocalMode}
           />
         )}
       </>
@@ -1288,6 +1351,7 @@ export default function App() {
                   onOpenLoginModal={() => void handleGoogleSignIn()}
                   onRetrySync={handleBadgeRetry}
                   onOpenTrashedModal={() => setShowDriveTrashedModal(true)}
+                  localOnly={storageMode === 'local'}
                 />
                 <PWAInstallButton compact />
                 <button
@@ -1314,11 +1378,12 @@ export default function App() {
                   onOpenLoginModal={() => void handleGoogleSignIn()}
                   onRetrySync={handleBadgeRetry}
                   onOpenTrashedModal={() => setShowDriveTrashedModal(true)}
+                  localOnly={storageMode === 'local'}
                 />
               </div>
             )}
 
-            {showProtectionReminder && (
+            {showProtectionReminder && storageMode === 'drive' && (
               <DriveProtectionReminderBanner
                 syncStatus={driveSyncStatus}
                 onDismiss={() => setShowProtectionReminder(false)}
@@ -1384,6 +1449,8 @@ export default function App() {
 
             {activeTab === 'settings' && (
               <SettingsView
+                storageMode={storageMode}
+                onConnectDrive={handleGoogleSignIn}
                 userProfile={userProfile}
                 monthlyBudget={monthlyBudget}
                 transactions={transactions}

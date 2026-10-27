@@ -101,7 +101,24 @@ export const DriveSyncStatusBadge: React.FC<{
   onOpenLoginModal: () => void;
   onRetrySync: () => void;
   onOpenTrashedModal: () => void;
-}> = ({ syncStatus, onOpenLoginModal, onRetrySync, onOpenTrashedModal }) => {
+  localOnly?: boolean;
+}> = ({ syncStatus, onOpenLoginModal, onRetrySync, onOpenTrashedModal, localOnly }) => {
+  if (localOnly) {
+    return (
+      <button
+        type="button"
+        onClick={onOpenLoginModal}
+        data-testid="drive-sync-status-badge"
+        title="Dữ liệu chỉ nằm trong trình duyệt này. Nhấn để kết nối Google Drive."
+        className="inline-flex items-center gap-1.5 rounded-xl liquid-glass px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500/40 transition-colors whitespace-nowrap shrink-0"
+      >
+        <CloudOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+        <span className="hidden sm:inline">Chỉ lưu trên máy · Kết nối Drive</span>
+        <span className="sm:hidden">Chỉ trên máy</span>
+      </button>
+    );
+  }
+
   if (syncStatus === 'drive_full_unsynced') {
     return (
       <button
@@ -240,8 +257,9 @@ export const DriveAuthWelcomeScreen: React.FC<{
   loading: boolean;
   errorMessage?: string;
   onSignInGoogleDrive: () => Promise<void>;
+  onContinueWithoutLogin: () => void;
   sessionExpired?: boolean;
-}> = ({ loading, errorMessage, onSignInGoogleDrive, sessionExpired }) => {
+}> = ({ loading, errorMessage, onSignInGoogleDrive, onContinueWithoutLogin, sessionExpired }) => {
   const hasClientId = Boolean(getConfiguredGoogleClientId());
   const [showClientIdConfig, setShowClientIdConfig] = useState(!hasClientId);
   const [clientIdInput, setClientIdInput] = useState(() => getConfiguredGoogleClientId());
@@ -332,6 +350,22 @@ export const DriveAuthWelcomeScreen: React.FC<{
               : 'Đăng nhập bằng Google để kết nối Google Drive của bạn'}
           </span>
         </button>
+
+        <div className="space-y-1.5">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onContinueWithoutLogin}
+            data-testid="continue-without-login-btn"
+            className="w-full rounded-xl liquid-glass px-5 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-emerald-500/40 transition-colors disabled:opacity-60"
+          >
+            Dùng không cần đăng nhập
+          </button>
+          <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 leading-relaxed">
+            Dữ liệu chỉ lưu trong trình duyệt này (không đồng bộ giữa các thiết bị, xóa dữ liệu duyệt web là mất).
+            Bạn có thể xuất file JSON để sao lưu và kết nối Google Drive bất cứ lúc nào.
+          </p>
+        </div>
 
         <div className="border-t border-slate-200/70 dark:border-slate-800 pt-3">
           <button

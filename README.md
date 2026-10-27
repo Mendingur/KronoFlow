@@ -7,6 +7,7 @@
 - Mỗi người dùng đăng nhập bằng Google; toàn bộ dữ liệu nằm trong tệp `kronoflow_database.json` trên **Google Drive của chính họ** (scope `drive.file`: ứng dụng chỉ thấy tệp do nó tạo).
 - Luôn có bản đệm trong LocalStorage: mất mạng, hết phiên đăng nhập hay Drive đầy thì không mất thao tác vừa nhập, và sẽ tự đồng bộ khi ổn định lại.
 - Cảnh báo khi tệp bị xóa / vào Thùng rác (có nút **Khôi phục dữ liệu lên Google Drive**) và khi Drive sắp đầy / đã đầy.
+- Có nút **Dùng không cần đăng nhập**: dữ liệu chỉ lưu trong trình duyệt đó (không đồng bộ giữa các thiết bị). Có thể kết nối Google Drive sau, dữ liệu đang có sẽ được mang theo nếu Drive chưa có tệp.
 - Mỗi người tự dán **Gemini API Key** của mình trong *Cài đặt* (lưu trong LocalStorage của trình duyệt đó). **Không** có khóa nào được ghi cứng trong mã nguồn.
 
 ## Thiết lập lần đầu (làm một lần)
