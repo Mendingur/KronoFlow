@@ -1,6 +1,0 @@
-{
-  "name": "Kỷ Luật & Tài Chính Pro",
-  "description": "Nền tảng quản lý chi tiêu thông minh, rèn luyện kỷ luật thói quen và danh sách công việc hằng ngày tích hợp AI Gemini & Google Workspace.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
