@@ -72,26 +72,29 @@ export interface UserProfileInfo {
   picture?: string;
 }
 
-export interface FinHabitDatabaseSchema {
+/** Cấu trúc tệp kronoflow_database.json lưu trên Google Drive của từng người dùng */
+export interface KronoFlowDatabase {
   version: string;
-  updatedAt: string;
+  lastUpdated: string; // ISO datetime
   userProfile?: UserProfileInfo;
   settings: {
     darkMode: boolean;
+  };
+  budgets: {
     monthlyBudget: number;
   };
   transactions: Transaction[];
   habits: Habit[];
-  tasks: TaskItem[];
+  todos: TaskItem[];
 }
 
 export interface DriveStorageQuota {
-  limit: number; // bytes (0 if unlimited)
+  limit: number; // bytes (0 nếu không giới hạn)
   usage: number; // bytes
   usageInDrive: number; // bytes
   usageInDriveTrash: number; // bytes
   percentage: number; // 0..100
-  isNearFull: boolean; // > 98%
+  isNearFull: boolean; // >= 98%
   isFull: boolean; // usage >= limit
 }
 
@@ -101,5 +104,5 @@ export type DriveSyncStatus =
   | 'synced'
   | 'drive_full_unsynced'
   | 'file_trashed_or_deleted'
+  | 'auth_expired'
   | 'error';
-

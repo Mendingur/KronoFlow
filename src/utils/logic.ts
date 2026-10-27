@@ -88,6 +88,27 @@ export function formatDateVN(isoDate: string): string {
 }
 
 /**
+ * Ngày hôm nay theo giờ địa phương của thiết bị, định dạng YYYY-MM-DD
+ */
+export function getLocalTodayISO(now: Date = new Date()): string {
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Cộng/trừ số ngày cho một ngày ISO (YYYY-MM-DD)
+ */
+export function addDaysISO(isoDate: string, days: number): string {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    dt.getUTCDate()
+  ).padStart(2, '0')}`;
+}
+
+/**
  * Lấy danh sách N ngày gần nhất tính đến todayISO (YYYY-MM-DD) theo thứ tự tăng dần
  */
 export function getLastNDaysISO(todayISO: string, count: number): string[] {

@@ -10,6 +10,7 @@ import {
   CloudOff,
   ChevronDown,
   ChevronUp,
+  KeyRound,
   X,
   FileWarning,
 } from 'lucide-react';
@@ -17,14 +18,11 @@ import {
   DRIVE_DB_FILENAME,
   DRIVE_PROTECTION_REMINDER_TEXT,
   DRIVE_FULL_ERROR_MESSAGE,
+  DRIVE_NEAR_FULL_MESSAGE,
   getConfiguredGoogleClientId,
   setConfiguredGoogleClientId,
 } from '../config/constants';
-import {
-  getStoredGeminiApiKey,
-  setStoredGeminiApiKey,
-} from '../services/geminiClient';
-import { formatBytesVN } from '../services/driveDatabase';
+import { formatBytesVN } from '../services/googleDriveService';
 import { DriveStorageQuota, DriveSyncStatus } from '../types';
 
 // 1. Compact Google Drive Storage Quota Progress Bar (for Sidebar & Settings)
@@ -90,7 +88,7 @@ export const CompactDriveQuotaBar: React.FC<{
       {(quota.isFull || quota.isNearFull) && (
         <div className="text-[11px] font-bold text-red-600 dark:text-red-400 flex items-center gap-1 pt-0.5">
           <AlertTriangle className="h-3 w-3 shrink-0" />
-          <span>Drive đã đầy (&gt;98%)!</span>
+          <span>{quota.isFull ? 'Drive đã đầy!' : 'Drive sắp đầy (≥98%)!'}</span>
         </div>
       )}
     </div>
@@ -114,7 +112,7 @@ export const DriveSyncStatusBadge: React.FC<{
         className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-red-700 transition-colors whitespace-nowrap shrink-0"
       >
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-        <span>Chưa đồng bộ (Drive đầy)</span>
+        <span>⚠️ Chưa đồng bộ (Drive đầy)</span>
       </button>
     );
   }
@@ -133,6 +131,34 @@ export const DriveSyncStatusBadge: React.FC<{
     );
   }
 
+  if (syncStatus === 'auth_expired') {
+    return (
+      <button
+        type="button"
+        onClick={onOpenLoginModal}
+        data-testid="drive-sync-status-badge"
+        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-amber-600 transition-colors whitespace-nowrap shrink-0"
+      >
+        <CloudOff className="h-3.5 w-3.5 shrink-0" />
+        <span>Phiên hết hạn — Đăng nhập lại</span>
+      </button>
+    );
+  }
+
+  if (syncStatus === 'error') {
+    return (
+      <button
+        type="button"
+        onClick={onRetrySync}
+        data-testid="drive-sync-status-badge"
+        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-amber-600 transition-colors whitespace-nowrap shrink-0"
+      >
+        <RefreshCw className="h-3.5 w-3.5 shrink-0" />
+        <span>Chưa đồng bộ — Thử lại</span>
+      </button>
+    );
+  }
+
   if (syncStatus === 'syncing') {
     return (
       <span
@@ -140,7 +166,7 @@ export const DriveSyncStatusBadge: React.FC<{
         className="inline-flex items-center gap-1.5 rounded-xl liquid-glass px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 whitespace-nowrap shrink-0"
       >
         <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600 dark:text-emerald-400 shrink-0" />
-        <span>Đang lưu {DRIVE_DB_FILENAME}...</span>
+        <span>Đang đồng bộ Drive...</span>
       </span>
     );
   }
@@ -155,7 +181,7 @@ export const DriveSyncStatusBadge: React.FC<{
         className="inline-flex items-center gap-1.5 rounded-xl liquid-glass px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:border-emerald-500/40 transition-colors whitespace-nowrap shrink-0"
       >
         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-        <span className="hidden sm:inline">Đã đồng bộ Drive ({DRIVE_DB_FILENAME})</span>
+        <span className="hidden sm:inline">Đã đồng bộ Drive</span>
         <span className="sm:hidden">Đã lưu Drive</span>
       </button>
     );
@@ -209,190 +235,142 @@ export const DriveProtectionReminderBanner: React.FC<{
   );
 };
 
-// 4. Welcome / Sign-In Gate Modal ("Đăng nhập bằng Google để kết nối Google Drive của bạn")
-export const DriveAuthWelcomeModal: React.FC<{
-  open: boolean;
+// 4. Màn hình chào mừng bắt buộc đăng nhập Google ("Đăng nhập bằng Google để kết nối Google Drive của bạn")
+export const DriveAuthWelcomeScreen: React.FC<{
   loading: boolean;
   errorMessage?: string;
   onSignInGoogleDrive: () => Promise<void>;
-  onContinueLocalMode: () => void;
-}> = ({
-  open,
-  loading,
-  errorMessage,
-  onSignInGoogleDrive,
-  onContinueLocalMode,
-}) => {
-  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
+  sessionExpired?: boolean;
+}> = ({ loading, errorMessage, onSignInGoogleDrive, sessionExpired }) => {
+  const hasClientId = Boolean(getConfiguredGoogleClientId());
+  const [showClientIdConfig, setShowClientIdConfig] = useState(!hasClientId);
   const [clientIdInput, setClientIdInput] = useState(() => getConfiguredGoogleClientId());
-  const [geminiKeyInput, setGeminiKeyInput] = useState(() => getStoredGeminiApiKey());
   const [configSavedMsg, setConfigSavedMsg] = useState('');
 
-  if (!open) return null;
-
-  const handleSaveQuickConfig = (e: React.FormEvent) => {
+  const handleSaveClientId = (e: React.FormEvent) => {
     e.preventDefault();
     setConfiguredGoogleClientId(clientIdInput);
-    setStoredGeminiApiKey(geminiKeyInput);
-    setConfigSavedMsg('Đã lưu GOOGLE_CLIENT_ID & Gemini API Key vào LocalStorage!');
+    setConfigSavedMsg(
+      clientIdInput.trim()
+        ? 'Đã lưu GOOGLE_CLIENT_ID! Bây giờ hãy nhấn nút đăng nhập bên trên.'
+        : 'Đã xóa GOOGLE_CLIENT_ID đã lưu.'
+    );
   };
 
   return (
     <div
-      data-testid="drive-login-gate-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Đăng nhập bằng Google để kết nối Google Drive của bạn"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto"
+      data-testid="drive-login-gate"
+      className="min-h-screen flex items-center justify-center p-4 kronoflow-ambient-bg text-slate-900 dark:text-slate-100"
     >
-      <div className="w-full max-w-lg rounded-2xl liquid-glass p-6 sm:p-7 shadow-2xl space-y-5 animate-view-enter my-auto">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <img
-              src={`${import.meta.env.BASE_URL}icon.svg`}
-              alt="KronoFlow"
-              className="h-11 w-11 shrink-0"
-            />
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                Đăng nhập bằng Google để kết nối Google Drive của bạn
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                KronoFlow — Cơ sở dữ liệu cá nhân lưu trực tiếp trên Google Drive của bạn
-              </p>
-            </div>
+      <div className="w-full max-w-lg rounded-2xl liquid-glass p-6 sm:p-7 shadow-2xl space-y-5 animate-view-enter">
+        <div className="flex items-center gap-3">
+          <img
+            src={`${import.meta.env.BASE_URL}icon.svg`}
+            alt="KronoFlow"
+            className="h-12 w-12 shrink-0"
+          />
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              Chào mừng đến với KronoFlow
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Quản lý Chi tiêu, Kỷ luật & Công việc — dữ liệu lưu trên Google Drive của riêng bạn
+            </p>
           </div>
-
-          <button
-            type="button"
-            onClick={onContinueLocalMode}
-            aria-label="Đóng cửa sổ đăng nhập"
-            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
-        {/* Mandatory Important Warning Box */}
+        {sessionExpired && (
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs font-semibold text-amber-800 dark:text-amber-300">
+            Phiên đăng nhập Google đã hết hạn. Dữ liệu bạn vừa nhập vẫn được giữ an toàn trên thiết bị và sẽ tự đồng bộ sau khi đăng nhập lại.
+          </div>
+        )}
+
         <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3.5 text-xs text-slate-800 dark:text-slate-200 leading-relaxed flex items-start gap-2.5">
           <ShieldAlert className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <strong>{DRIVE_PROTECTION_REMINDER_TEXT}</strong>
-          </div>
+          <strong>{DRIVE_PROTECTION_REMINDER_TEXT}</strong>
         </div>
 
         <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-          <li className="flex items-center gap-2">
+          <li className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>
-              Tự động tìm hoặc khởi tạo tệp{' '}
-              <code className="font-mono font-bold text-slate-900 dark:text-slate-100">
-                {DRIVE_DB_FILENAME}
-              </code>{' '}
-              trên Google Drive cá nhân của bạn.
+              Tự động tìm hoặc tạo tệp{' '}
+              <code className="font-mono font-bold text-slate-900 dark:text-slate-100">{DRIVE_DB_FILENAME}</code>{' '}
+              trong Google Drive của bạn. KronoFlow chỉ truy cập tệp do chính ứng dụng tạo ra.
             </span>
           </li>
-          <li className="flex items-center gap-2">
+          <li className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>
-              Tự động lưu (Auto-save) mọi khoản thu chi, chuỗi thói quen kỷ luật và công việc hằng ngày.
-            </span>
+            <span>Tự động lưu mọi khoản thu chi, chuỗi thói quen kỷ luật và công việc hằng ngày.</span>
           </li>
-          <li className="flex items-center gap-2">
+          <li className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>
-              Kiểm tra dung lượng Drive tự động và chống mất dữ liệu khi xóa nhầm hoặc đầy bộ nhớ.
-            </span>
+            <span>Kiểm tra dung lượng Drive và chống mất dữ liệu khi xóa nhầm tệp hoặc đầy bộ nhớ.</span>
           </li>
         </ul>
 
         {errorMessage && (
-          <div className="rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 p-3 text-xs font-semibold text-red-700 dark:text-red-300">
+          <div
+            data-testid="drive-login-error"
+            className="rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 p-3 text-xs font-semibold text-red-700 dark:text-red-300"
+          >
             {errorMessage}
           </div>
         )}
 
-        {/* Primary Google Drive Sign-In Action */}
-        <div className="space-y-2.5 pt-1">
-          <button
-            type="button"
-            disabled={loading}
-            onClick={onSignInGoogleDrive}
-            data-testid="google-drive-login-btn"
-            className="w-full flex items-center justify-center gap-3 rounded-xl claude-liquid-btn px-5 py-3.5 text-sm font-bold text-white shadow-md transition-all disabled:opacity-60"
-          >
-            <HardDrive className="h-4 w-4 shrink-0" />
-            <span>
-              {loading
-                ? 'Đang kết nối Google Drive...'
-                : 'Đăng nhập bằng Google để kết nối Google Drive của bạn'}
-            </span>
-          </button>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={onSignInGoogleDrive}
+          data-testid="google-drive-login-btn"
+          className="w-full flex items-center justify-center gap-3 rounded-xl claude-liquid-btn px-5 py-3.5 text-sm font-bold text-white shadow-md transition-all disabled:opacity-60"
+        >
+          <HardDrive className="h-4 w-4 shrink-0" />
+          <span>
+            {loading
+              ? 'Đang kết nối Google Drive...'
+              : 'Đăng nhập bằng Google để kết nối Google Drive của bạn'}
+          </span>
+        </button>
 
-          <button
-            type="button"
-            onClick={onContinueLocalMode}
-            data-testid="skip-drive-login-btn"
-            className="w-full rounded-xl liquid-glass px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500/40 transition-colors"
-          >
-            Tạm dùng dữ liệu cục bộ trên trình duyệt (Kết nối Google Drive sau)
-          </button>
-        </div>
-
-        {/* Optional Client ID & Gemini API Key Configuration Accordion */}
         <div className="border-t border-slate-200/70 dark:border-slate-800 pt-3">
           <button
             type="button"
-            onClick={() => setShowAdvancedConfig((prev) => !prev)}
+            onClick={() => setShowClientIdConfig((prev) => !prev)}
             className="w-full flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
           >
-            <span>Tùy chỉnh GOOGLE_CLIENT_ID &amp; Gemini API Key cá nhân (GitHub Pages)</span>
-            {showAdvancedConfig ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
+            <span className="inline-flex items-center gap-1.5">
+              <KeyRound className="h-3.5 w-3.5" />
+              Cấu hình GOOGLE_CLIENT_ID {hasClientId ? '(đã có)' : '(cần thiết lập lần đầu)'}
+            </span>
+            {showClientIdConfig ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
 
-          {showAdvancedConfig && (
-            <form onSubmit={handleSaveQuickConfig} className="mt-3 space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  GOOGLE_CLIENT_ID (OAuth 2.0 Web Client ID)
-                </label>
-                <input
-                  type="text"
-                  value={clientIdInput}
-                  onChange={(e) => setClientIdInput(e.target.value)}
-                  placeholder="xxxx.apps.googleusercontent.com"
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900 px-3 py-2 font-mono text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Gemini API Key cá nhân (Lưu vào LocalStorage)
-                </label>
-                <input
-                  type="password"
-                  value={geminiKeyInput}
-                  onChange={(e) => setGeminiKeyInput(e.target.value)}
-                  placeholder="AIzaSy..."
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900 px-3 py-2 font-mono text-xs"
-                />
-              </div>
-
+          {showClientIdConfig && (
+            <form onSubmit={handleSaveClientId} className="mt-3 space-y-3 text-xs">
+              <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                Tạo <strong>OAuth Client ID</strong> loại <em>Web application</em> trong Google Cloud Console
+                (APIs &amp; Services → Credentials), bật <strong>Google Drive API</strong> và thêm{' '}
+                <code className="font-mono">{window.location.origin}</code> vào mục{' '}
+                <em>Authorized JavaScript origins</em>. Client ID không phải là bí mật.
+              </p>
+              <input
+                type="text"
+                value={clientIdInput}
+                onChange={(e) => setClientIdInput(e.target.value)}
+                placeholder="xxxxxxxx.apps.googleusercontent.com"
+                data-testid="gate-client-id-input"
+                spellCheck={false}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900 px-3 py-2 font-mono text-xs"
+              />
               {configSavedMsg && (
-                <div className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                  {configSavedMsg}
-                </div>
+                <div className="text-emerald-600 dark:text-emerald-400 font-semibold">{configSavedMsg}</div>
               )}
-
               <button
                 type="submit"
                 className="rounded-lg bg-slate-900 dark:bg-slate-700 px-3.5 py-2 text-xs font-bold text-white"
               >
-                Lưu cấu hình Client-side
+                Lưu GOOGLE_CLIENT_ID
               </button>
             </form>
           )}
@@ -402,7 +380,7 @@ export const DriveAuthWelcomeModal: React.FC<{
   );
 };
 
-// 5. Red Alert Modal when finhabit_database.json is Trashed or Deleted on Google Drive
+// 5. Red Alert Modal when kronoflow_database.json is Trashed or Deleted on Google Drive
 export const DriveTrashedOrDeletedModal: React.FC<{
   open: boolean;
   restoring: boolean;
@@ -426,7 +404,7 @@ export const DriveTrashedOrDeletedModal: React.FC<{
           </div>
           <div>
             <h3 className="text-base font-bold text-red-600 dark:text-red-400">
-              Cảnh báo Khẩn cấp: Không tìm thấy hoặc File dữ liệu đã bị đưa vào Thùng rác!
+              Cảnh báo: Tệp dữ liệu trên Google Drive đã bị xóa hoặc nằm trong Thùng rác!
             </h3>
             <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               Hệ thống phát hiện tệp gốc{' '}
@@ -461,7 +439,7 @@ export const DriveTrashedOrDeletedModal: React.FC<{
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-5 py-2.5 text-xs font-bold text-white shadow-md transition-colors disabled:opacity-60"
           >
             <RotateCcw className={`h-4 w-4 ${restoring ? 'animate-spin' : ''}`} />
-            <span>{restoring ? 'Đang khôi phục...' : 'Khôi phục lại lên Drive'}</span>
+            <span>{restoring ? 'Đang khôi phục...' : 'Khôi phục dữ liệu lên Google Drive'}</span>
           </button>
         </div>
       </div>
@@ -469,7 +447,7 @@ export const DriveTrashedOrDeletedModal: React.FC<{
   );
 };
 
-// 6. Emergency Drive Quota Full Modal (when usage >= limit, > 98%, or HTTP 403 storageQuotaExceeded)
+// 6. Hộp thoại cảnh báo Google Drive đầy / sắp đầy (usage >= limit, >= 98%, hoặc lỗi 403 storageQuotaExceeded)
 export const DriveQuotaExceededModal: React.FC<{
   open: boolean;
   quota: DriveStorageQuota | null;
@@ -478,6 +456,9 @@ export const DriveQuotaExceededModal: React.FC<{
   onClose: () => void;
 }> = ({ open, quota, retrying, onRetrySync, onClose }) => {
   if (!open) return null;
+
+  // Chỉ coi là "sắp đầy" khi đã biết rõ dung lượng và chưa chạm 100%
+  const nearFullOnly = Boolean(quota && quota.isNearFull && !quota.isFull);
 
   return (
     <div
@@ -494,13 +475,15 @@ export const DriveQuotaExceededModal: React.FC<{
           </div>
           <div>
             <h3 className="text-base font-bold text-red-600 dark:text-red-400">
-              Cảnh báo Khẩn cấp: Bộ nhớ Google Drive đã đầy!
+              {nearFullOnly
+                ? 'Cảnh báo: Bộ nhớ Google Drive sắp đầy!'
+                : 'Cảnh báo khẩn cấp: Bộ nhớ Google Drive đã đầy!'}
             </h3>
             <p
               data-testid="drive-full-modal-message"
               className="mt-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 leading-relaxed"
             >
-              {DRIVE_FULL_ERROR_MESSAGE}
+              {nearFullOnly ? DRIVE_NEAR_FULL_MESSAGE : DRIVE_FULL_ERROR_MESSAGE}
             </p>
           </div>
         </div>
@@ -512,10 +495,7 @@ export const DriveQuotaExceededModal: React.FC<{
               <span className="font-mono">{quota.percentage}%</span>
             </div>
             <div className="h-2 w-full rounded-full bg-red-200 dark:bg-red-900 overflow-hidden">
-              <div
-                className="h-full bg-red-600"
-                style={{ width: `${Math.min(100, quota.percentage)}%` }}
-              />
+              <div className="h-full bg-red-600" style={{ width: `${Math.min(100, quota.percentage)}%` }} />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-red-600 dark:text-red-300">
               <span className="whitespace-nowrap">Đã dùng: {formatBytesVN(quota.usage)}</span>
@@ -525,14 +505,14 @@ export const DriveQuotaExceededModal: React.FC<{
           </div>
         )}
 
-        <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-          <strong>An toàn dữ liệu:</strong> Thao tác vừa nhập của bạn đã được{' '}
-          <strong>giữ tạm an toàn trong LocalStorage</strong> của trình duyệt và gắn nhãn{' '}
-          <span className="font-bold text-red-600 dark:text-red-400">
-            &ldquo;Chưa đồng bộ (Drive đầy)&rdquo;
-          </span>{' '}
-          để bạn không bị mất bất kỳ dữ liệu nào vừa gõ.
-        </div>
+        {!nearFullOnly && (
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+            <strong>An toàn dữ liệu:</strong> Thao tác vừa nhập của bạn đã được{' '}
+            <strong>giữ tạm trong LocalStorage</strong> của trình duyệt và gắn nhãn{' '}
+            <span className="font-bold text-red-600 dark:text-red-400">&ldquo;⚠️ Chưa đồng bộ (Drive đầy)&rdquo;</span>{' '}
+            để bạn không bị mất dữ liệu vừa gõ.
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
           <a
@@ -551,7 +531,7 @@ export const DriveQuotaExceededModal: React.FC<{
             data-testid="close-drive-quota-modal-btn"
             className="rounded-xl border border-slate-200 dark:border-slate-700 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300"
           >
-            Đóng (Lưu tạm trên máy)
+            Đóng
           </button>
 
           <button
@@ -562,7 +542,7 @@ export const DriveQuotaExceededModal: React.FC<{
             className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-2 text-xs font-bold text-white shadow-sm disabled:opacity-60"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${retrying ? 'animate-spin' : ''}`} />
-            <span>{retrying ? 'Đang thử lại...' : 'Thử lại ngay'}</span>
+            <span>{retrying ? 'Đang đồng bộ...' : 'Đồng bộ lại'}</span>
           </button>
         </div>
       </div>

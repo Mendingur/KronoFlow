@@ -6,7 +6,6 @@ import {
   RefreshCw,
   ArrowUpRight,
   ArrowDownRight,
-  AlertCircle,
   Award,
   ChevronRight,
   BrainCircuit,

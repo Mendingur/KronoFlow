@@ -1,4 +1,6 @@
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { GEMINI_MODEL_FAST, GEMINI_MODEL_SMART } from '../config/constants';
+import { getLocalTodayISO } from '../utils/logic';
 
 export const GEMINI_API_KEY_STORAGE_KEY = 'kronoflow_gemini_api_key_v1';
 
@@ -171,7 +173,7 @@ export async function analyzeCoachClientSide(
 
       const response = await withTimeout(
         ai.models.generateContent({
-          model: 'gemini-3.8-flash',
+          model: GEMINI_MODEL_SMART,
           contents: prompt,
           config: {
             systemInstruction:
@@ -263,7 +265,7 @@ export async function parseExpensesClientSide(text: string, todayISO: string) {
     try {
       const response = await withTimeout(
         ai.models.generateContent({
-          model: 'gemini-3.8-flash',
+          model: GEMINI_MODEL_SMART,
           contents: `Hãy bóc tách câu tiếng Việt sau thành danh sách các giao dịch thu/chi (Hôm nay là ${todayISO}): "${text}"`,
           config: {
             systemInstruction: `Bạn là trợ lý kế toán cá nhân tiếng Việt. Quy đổi đơn vị viết tắt: "k" hoặc "nghìn" = 1000, "lít" = 100000, "tr" hoặc "triệu" hoặc "củ" = 1000000 (ví dụ: "45k" -> 45000, "1tr5" -> 1500000).
@@ -305,7 +307,7 @@ Trường type chỉ nhận "expense" (chi tiêu) hoặc "income" (thu nhập).`
 export async function parseReceiptClientSide(
   base64Data: string,
   mimeType = 'image/jpeg',
-  todayISO = '2026-10-26'
+  todayISO = getLocalTodayISO()
 ) {
   const ai = createClientGenAI();
 
@@ -314,7 +316,7 @@ export async function parseReceiptClientSide(
       const cleanBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
       const response = await withTimeout(
         ai.models.generateContent({
-          model: 'gemini-3.8-flash',
+          model: GEMINI_MODEL_SMART,
           contents: {
             parts: [
               {
@@ -379,7 +381,7 @@ export async function breakdownTaskClientSide(taskTitle: string) {
     try {
       const response = await withTimeout(
         ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite',
+          model: GEMINI_MODEL_FAST,
           contents: `Chia nhỏ mục tiêu/công việc sau thành 4 đến 5 bước hành động cụ thể, ngắn gọn, có thể thực hiện ngay trong ngày hôm nay bằng tiếng Việt: "${taskTitle}"`,
           config: {
             systemInstruction:
@@ -437,23 +439,23 @@ Bối cảnh dữ liệu hiện tại của người dùng: ${contextSummary}`;
         parts: [{ text: m.content }],
       }));
 
-      let modelName = 'gemini-3.8-flash';
+      let modelName: string = GEMINI_MODEL_SMART;
       const config: Record<string, unknown> = {
         systemInstruction,
       };
 
       if (mode === 'thinking') {
-        modelName = 'gemini-3.8-flash';
+        modelName = GEMINI_MODEL_SMART;
         config.thinkingConfig = {
           thinkingLevel: ThinkingLevel.HIGH,
         };
       } else if (mode === 'fast') {
-        modelName = 'gemini-3.1-flash-lite';
+        modelName = GEMINI_MODEL_FAST;
       } else if (mode === 'search') {
-        modelName = 'gemini-3.8-flash';
+        modelName = GEMINI_MODEL_SMART;
         config.tools = [{ googleSearch: {} }];
       } else if (mode === 'maps') {
-        modelName = 'gemini-3.8-flash';
+        modelName = GEMINI_MODEL_SMART;
         config.tools = [{ googleMaps: {} }];
       }
 
@@ -522,7 +524,7 @@ export async function verifyPersonalGeminiApiKey(candidateKey: string): Promise<
     const testClient = new GoogleGenAI({ apiKey: trimmed });
     const response = await withTimeout(
       testClient.models.generateContent({
-        model: 'gemini-3.1-flash-lite',
+        model: GEMINI_MODEL_FAST,
         contents: 'Trả lời ngắn gọn 1 câu tiếng Việt: Kết nối KronoFlow thành công!',
       }),
       8000

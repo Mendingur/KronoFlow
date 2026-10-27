@@ -722,7 +722,7 @@ export const ExpenseTrackerView: React.FC<ExpenseTrackerViewProps> = ({
                   ))}
                 </Pie>
                 <RechartsTooltip
-                  formatter={(value: number) => [formatVND(value), 'Số tiền']}
+                  formatter={(value) => [formatVND(Number(value ?? 0)), 'Số tiền']}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -769,7 +769,7 @@ export const ExpenseTrackerView: React.FC<ExpenseTrackerViewProps> = ({
                   tick={{ fontSize: 12 }}
                 />
                 <RechartsTooltip
-                  formatter={(value: number) => [formatVND(value), 'Chi tiêu trong ngày']}
+                  formatter={(value) => [formatVND(Number(value ?? 0)), 'Chi tiêu trong ngày']}
                 />
                 <Bar dataKey="chiTieu" fill="#D97757" radius={[6, 6, 0, 0]} />
               </BarChart>

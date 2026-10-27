@@ -1,7 +1,8 @@
 import { Transaction, Habit, TaskItem } from '../types';
-import { getLastNDaysISO } from './logic';
+import { addDaysISO, getLastNDaysISO, getLocalTodayISO } from './logic';
 
-export const TODAY_ISO = '2026-10-26';
+// Dữ liệu mẫu luôn tính theo ngày hiện tại của thiết bị (không còn cố định một ngày)
+const TODAY_ISO = getLocalTodayISO();
 
 export const INITIAL_MONTHLY_BUDGET = 12_000_000; // 12.000.000 đ
 
@@ -13,7 +14,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 22_500_000,
     type: 'income',
     category: 'Thu nhập',
-    date: '2026-10-05',
+    date: recentDays[0],
     time: '09:15',
     note: 'Lương tháng 10 & phụ cấp dự án',
   },
@@ -22,7 +23,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 3_500_000,
     type: 'income',
     category: 'Thu nhập',
-    date: '2026-10-18',
+    date: recentDays[5],
     time: '16:30',
     note: 'Thưởng hoàn thành dự án thiết kế UI/UX',
   },
@@ -228,7 +229,7 @@ export const INITIAL_TASKS: TaskItem[] = [
     id: 'tsk-4',
     title: 'Lên kế hoạch du lịch Đà Lạt tự túc 3 ngày 2 đêm',
     priority: 'normal',
-    deadline: '2026-10-29 20:00',
+    deadline: `${addDaysISO(TODAY_ISO, 3)} 20:00`,
     status: 'todo',
     subtasks: [
       { id: 'st-401', title: 'Tìm hiểu homestay gần trung tâm với ngân sách dưới 600k/đêm', completed: false },

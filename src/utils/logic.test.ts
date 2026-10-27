@@ -92,7 +92,7 @@ test('validateBackupJson validates backup schema', () => {
   assert.equal(valid.valid, true);
 });
 
-import { computeQuotaMetrics, formatBytesVN } from '../services/driveDatabase';
+import { computeQuotaMetrics, formatBytesVN, isStorageQuotaError } from '../services/googleDriveService';
 import {
   DRIVE_DB_FILENAME,
   DRIVE_DB_DESCRIPTION,
@@ -100,7 +100,7 @@ import {
   DRIVE_FULL_ERROR_MESSAGE,
 } from '../config/constants';
 
-test('computeQuotaMetrics accurately detects normal, near-full (>98%), and full (>=100%) Drive storage', () => {
+test('computeQuotaMetrics accurately detects normal, near-full (>=98%), and full (>=100%) Drive storage', () => {
   const fifteenGB = 15 * 1024 * 1024 * 1024;
   const normal = computeQuotaMetrics({ limit: fifteenGB, usage: 5 * 1024 * 1024 * 1024 });
   assert.equal(normal.isNearFull, false);
@@ -118,6 +118,11 @@ test('computeQuotaMetrics accurately detects normal, near-full (>98%), and full 
   assert.equal(full.isNearFull, true);
   assert.equal(full.isFull, true);
   assert.equal(full.percentage, 100);
+
+  // Tài khoản không giới hạn dung lượng (không có "limit") không bao giờ bị coi là đầy
+  const unlimited = computeQuotaMetrics({ usage: 999 * 1024 * 1024 * 1024 });
+  assert.equal(unlimited.isFull, false);
+  assert.equal(unlimited.isNearFull, false);
 });
 
 test('formatBytesVN formats byte sizes into human-readable MB/GB', () => {
@@ -125,13 +130,20 @@ test('formatBytesVN formats byte sizes into human-readable MB/GB', () => {
   assert.equal(formatBytesVN(15 * 1024 * 1024 * 1024), '15,00 GB');
 });
 
-test('Google Drive database constants match required file name, metadata description, and Vietnamese alert texts', () => {
-  assert.equal(DRIVE_DB_FILENAME, 'finhabit_database.json');
-  assert.equal(
-    DRIVE_DB_DESCRIPTION,
-    'Dữ liệu gốc của ứng dụng Quản lý Chi tiêu & Kỷ luật - Vui lòng không xóa!'
-  );
-  assert.ok(DRIVE_PROTECTION_REMINDER_TEXT.includes('finhabit_database.json'));
-  assert.ok(DRIVE_FULL_ERROR_MESSAGE.includes('Bộ nhớ Google Drive của bạn đã đầy!'));
+test('isStorageQuotaError recognises storageQuotaExceeded but not ordinary rate limits', () => {
+  assert.equal(isStorageQuotaError(403, ['storageQuotaExceeded'], 'x'), true);
+  assert.equal(isStorageQuotaError(403, ['quotaExceeded'], "The user's Drive storage quota has been exceeded."), true);
+  assert.equal(isStorageQuotaError(403, ['userRateLimitExceeded'], 'Rate limit exceeded'), false);
+  assert.equal(isStorageQuotaError(404, ['storageQuotaExceeded'], 'x'), false);
 });
 
+test('Drive database constants match the required file name, description and Vietnamese alert texts', () => {
+  assert.equal(DRIVE_DB_FILENAME, 'kronoflow_database.json');
+  assert.equal(
+    DRIVE_DB_DESCRIPTION,
+    'Cơ sở dữ liệu gốc của ứng dụng KronoFlow (Quản lý Chi tiêu, Kỷ luật & Công việc) - Tuyệt đối KHÔNG xóa hoặc chỉnh sửa file này!'
+  );
+  assert.ok(DRIVE_PROTECTION_REMINDER_TEXT.includes('kronoflow_database.json'));
+  assert.ok(DRIVE_FULL_ERROR_MESSAGE.includes('Bộ nhớ Google Drive của bạn đã đầy!'));
+  assert.ok(DRIVE_FULL_ERROR_MESSAGE.includes("'Đồng bộ lại'"));
+});
